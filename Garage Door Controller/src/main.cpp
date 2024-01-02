@@ -8,6 +8,7 @@ bool led_on = false;
 int const led_pin = 12;
 
 void setup() {
+  pinMode(led_pin, OUTPUT);
   Serial.begin(115200);
 
   WiFi.softAP("ESP32");
