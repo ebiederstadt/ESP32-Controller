@@ -2,6 +2,7 @@ package com.example.espcommunication
 
 import android.annotation.SuppressLint
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
@@ -63,6 +64,7 @@ fun OpenButton() {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Button(onClick = {
+                // Send the request
                 val queue = Volley.newRequestQueue(context)
                 val url = "http://192.168.4.1/blink"
 
@@ -76,7 +78,8 @@ fun OpenButton() {
                             )
                         }
                     },
-                    {
+                    {error ->
+                        Log.e("Volley Error", error.toString())
                         coroutineScope.launch {
                             snackBarHostState.showSnackbar(
                                 message = "That didn't work!",
