@@ -2,7 +2,6 @@ package com.example.espcommunication
 
 import android.annotation.SuppressLint
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
@@ -15,7 +14,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,9 +21,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.android.volley.Request
+import com.android.volley.toolbox.StringRequest
+import com.android.volley.toolbox.Volley
 import com.example.espcommunication.ui.theme.ESPCommunicationTheme
 import kotlinx.coroutines.launch
 
@@ -49,6 +50,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 fun OpenButton() {
+    val context = LocalContext.current
+
     val snackBarHostState = remember {
         SnackbarHostState()
     }
@@ -60,12 +63,29 @@ fun OpenButton() {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Button(onClick = {
-                coroutineScope.launch {
-                    snackBarHostState.showSnackbar(
-                        message = "Request Sent",
-                        duration = SnackbarDuration.Short
-                    )
-                }
+                val queue = Volley.newRequestQueue(context)
+                val url = "http://192.168.4.1/blink"
+
+                val stringRequest = StringRequest(Request.Method.GET, url,
+                    { response ->
+                        // Display the first 500 characters of the response string.
+                        coroutineScope.launch {
+                            snackBarHostState.showSnackbar(
+                                message = "Response is: ${response.substring(0, 500)}",
+                                duration = SnackbarDuration.Short
+                            )
+                        }
+                    },
+                    {
+                        coroutineScope.launch {
+                            snackBarHostState.showSnackbar(
+                                message = "That didn't work!",
+                                duration = SnackbarDuration.Short
+                            )
+                        }
+                    })
+
+                queue.add(stringRequest)
             }) {
                 Text(
                     text = "Open/Close",
@@ -84,7 +104,4 @@ fun GreetingPreview() {
     ESPCommunicationTheme {
         OpenButton()
     }
-}
-
-fun sendRequest() {
 }
