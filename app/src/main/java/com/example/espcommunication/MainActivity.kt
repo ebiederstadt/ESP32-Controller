@@ -3,6 +3,7 @@ package com.example.espcommunication
 import android.annotation.SuppressLint
 import android.content.Context
 import android.net.ConnectivityManager
+import android.net.ConnectivityManager.NetworkCallback
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
@@ -38,8 +39,15 @@ import com.example.espcommunication.ui.theme.ESPCommunicationTheme
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    private lateinit var connectivityManager: ConnectivityManager
+    private lateinit var networkCallback: NetworkCallback
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        connectivityManager =
+            this.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+
         setContent {
             ESPCommunicationTheme {
                 // A surface container using the 'background' color from the theme
@@ -47,17 +55,23 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    ConnectToNetwork()
+                    networkCallback = ConnectToNetwork(connectivityManager)
                     OpenButton()
                 }
             }
         }
     }
+
+    override fun onStop() {
+        super.onStop()
+        connectivityManager.unregisterNetworkCallback(networkCallback)
+    }
 }
 
 @Composable
-fun ConnectToNetwork() {
-    val context = LocalContext.current
+fun ConnectToNetwork(
+    connectivityManager: ConnectivityManager,
+) : NetworkCallback {
     val specifier = WifiNetworkSpecifier.Builder()
         .setSsid("ESP32")
 //        .setBssid(MacAddress.fromString("08:F9:E0:20:45:0C"))
@@ -68,10 +82,7 @@ fun ConnectToNetwork() {
         .setNetworkSpecifier(specifier)
         .build()
 
-    val connectivityManager =
-        context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-
-    val networkCallback = object : ConnectivityManager.NetworkCallback() {
+    val networkCallback = object : NetworkCallback() {
         override fun onAvailable(network: Network) {
             Log.d("WIFI connection", "Network was found!")
         }
@@ -83,6 +94,7 @@ fun ConnectToNetwork() {
 
     // This will display a loading bar + error message with option to retry
     connectivityManager.requestNetwork(request, networkCallback)
+    return networkCallback
 }
 
 @Composable
