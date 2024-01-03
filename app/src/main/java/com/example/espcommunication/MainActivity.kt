@@ -47,11 +47,42 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
+                    ConnectToNetwork()
                     OpenButton()
                 }
             }
         }
     }
+}
+
+@Composable
+fun ConnectToNetwork() {
+    val context = LocalContext.current
+    val specifier = WifiNetworkSpecifier.Builder()
+        .setSsid("ESP32")
+//        .setBssid(MacAddress.fromString("08:F9:E0:20:45:0C"))
+        .build()
+
+    val request = NetworkRequest.Builder()
+        .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+        .setNetworkSpecifier(specifier)
+        .build()
+
+    val connectivityManager =
+        context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+
+    val networkCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) {
+            Log.d("WIFI connection", "Network was found!")
+        }
+
+        override fun onUnavailable() {
+            Log.e("WIFI connection", "Not available")
+        }
+    }
+
+    // This will display a loading bar + error message with option to retry
+    connectivityManager.requestNetwork(request, networkCallback)
 }
 
 @Composable
@@ -70,64 +101,30 @@ fun OpenButton() {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Button(onClick = {
-                // Connect to the WIFI network
-                val specifier = WifiNetworkSpecifier.Builder()
-                    .setSsid("ESP32")
-//                    .set(MacAddress.fromString("08:F9:E0:20:45:0C"))
-                    .build()
+                // Send the request
+                val queue = Volley.newRequestQueue(context)
+                val url = "http://192.168.4.1/blink/"
 
-                val request = NetworkRequest.Builder()
-                    .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
-                    .setNetworkSpecifier(specifier)
-                    .build()
-
-                val connectivityManager =
-                    context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-
-                val networkCallback = object : ConnectivityManager.NetworkCallback() {
-                    override fun onAvailable(network: Network) {
-                        Log.d("WIFI connection", "Network was found!")
-
-                        // Send the request
-                        val queue = Volley.newRequestQueue(context)
-                        val url = "http://192.168.4.1/blink"
-
-                        val stringRequest = StringRequest(Request.Method.GET, url,
-                            { response ->
-                                // Display the first 500 characters of the response string.
-                                coroutineScope.launch {
-                                    snackBarHostState.showSnackbar(
-                                        message = "Response is: $response",
-                                        duration = SnackbarDuration.Short
-                                    )
-                                }
-                            },
-                            { error ->
-                                Log.e("Volley Error", error.toString())
-                                coroutineScope.launch {
-                                    snackBarHostState.showSnackbar(
-                                        message = "Sending Request Failed",
-                                        duration = SnackbarDuration.Short
-                                    )
-                                }
-                            })
-
-                        queue.add(stringRequest)
-                    }
-
-                    override fun onUnavailable() {
-                        Log.e("WIFI connection", "Not available")
+                val stringRequest = StringRequest(Request.Method.GET, url,
+                    { response ->
                         coroutineScope.launch {
                             snackBarHostState.showSnackbar(
-                                message = "Not able to connect to WIFI network",
+                                message = "Response is: $response",
                                 duration = SnackbarDuration.Short
                             )
                         }
-                    }
-                }
-                connectivityManager.requestNetwork(request, networkCallback)
+                    },
+                    { error ->
+                        Log.e("Volley Error", error.toString())
+                        coroutineScope.launch {
+                            snackBarHostState.showSnackbar(
+                                message = "Sending Request Failed",
+                                duration = SnackbarDuration.Short
+                            )
+                        }
+                    })
 
-//                connectivityManager.unregisterNetworkCallback(networkCallback)
+                queue.add(stringRequest)
             }) {
                 Text(
                     text = "Open/Close",
