@@ -57,7 +57,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    ConnectToNetwork(connectivityManager)
+                    networkCallback = ConnectToNetwork(connectivityManager)
                 }
             }
         }
@@ -72,7 +72,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun ConnectToNetwork(
     connectivityManager: ConnectivityManager,
-) {
+): NetworkCallback {
     var foundNetwork by remember { mutableStateOf<Network?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
@@ -103,15 +103,17 @@ fun ConnectToNetwork(
     OpenButton {
         foundNetwork?.let { network ->
             // We are not allowed to make network requests on the main thread, so we have to use a co-routine scope
-           coroutineScope.launch {
-               val result = sendRequest(network)
-               Log.i("WIFI Connection", result)
-           }
+            coroutineScope.launch {
+                val result = sendRequest(network)
+                Log.i("WIFI Connection", result)
+            }
         }
     }
+
+    return networkCallback
 }
 
-suspend fun sendRequest(network: Network) : String {
+suspend fun sendRequest(network: Network): String {
     return withContext(Dispatchers.IO) {
         val connection = network.openConnection(URL("http://192.168.4.1/blink"))
         val response = connection.getInputStream()
