@@ -19,24 +19,26 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.android.volley.Request
-import com.android.volley.toolbox.StringRequest
-import com.android.volley.toolbox.Volley
 import com.example.espcommunication.ui.theme.ESPCommunicationTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.net.URL
+import java.util.Scanner
 
 class MainActivity : ComponentActivity() {
     private lateinit var connectivityManager: ConnectivityManager
@@ -55,8 +57,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    networkCallback = ConnectToNetwork(connectivityManager)
-                    OpenButton()
+                    ConnectToNetwork(connectivityManager)
                 }
             }
         }
@@ -71,7 +72,10 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun ConnectToNetwork(
     connectivityManager: ConnectivityManager,
-) : NetworkCallback {
+) {
+    var foundNetwork by remember { mutableStateOf<Network?>(null) }
+    val coroutineScope = rememberCoroutineScope()
+
     val specifier = WifiNetworkSpecifier.Builder()
         .setSsid("ESP32")
 //        .setBssid(MacAddress.fromString("08:F9:E0:20:45:0C"))
@@ -85,6 +89,7 @@ fun ConnectToNetwork(
     val networkCallback = object : NetworkCallback() {
         override fun onAvailable(network: Network) {
             Log.d("WIFI connection", "Network was found!")
+            foundNetwork = network
         }
 
         override fun onUnavailable() {
@@ -94,50 +99,40 @@ fun ConnectToNetwork(
 
     // This will display a loading bar + error message with option to retry
     connectivityManager.requestNetwork(request, networkCallback)
-    return networkCallback
+
+    OpenButton {
+        foundNetwork?.let { network ->
+            // We are not allowed to make network requests on the main thread, so we have to use a co-routine scope
+           coroutineScope.launch {
+               val result = sendRequest(network)
+               Log.i("WIFI Connection", result)
+           }
+        }
+    }
+}
+
+suspend fun sendRequest(network: Network) : String {
+    return withContext(Dispatchers.IO) {
+        val connection = network.openConnection(URL("http://192.168.4.1/blink"))
+        val response = connection.getInputStream()
+        val scanner = Scanner(response)
+        return@withContext scanner.useDelimiter("\\A").next()
+    }
 }
 
 @Composable
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
-fun OpenButton() {
-    val context = LocalContext.current
-
+fun OpenButton(sendRequest: () -> Unit) {
     val snackBarHostState = remember {
         SnackbarHostState()
     }
-    val coroutineScope = rememberCoroutineScope()
     Scaffold(content = {
         Column(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Button(onClick = {
-                // Send the request
-                val queue = Volley.newRequestQueue(context)
-                val url = "http://192.168.4.1/blink/"
-
-                val stringRequest = StringRequest(Request.Method.GET, url,
-                    { response ->
-                        coroutineScope.launch {
-                            snackBarHostState.showSnackbar(
-                                message = "Response is: $response",
-                                duration = SnackbarDuration.Short
-                            )
-                        }
-                    },
-                    { error ->
-                        Log.e("Volley Error", error.toString())
-                        coroutineScope.launch {
-                            snackBarHostState.showSnackbar(
-                                message = "Sending Request Failed",
-                                duration = SnackbarDuration.Short
-                            )
-                        }
-                    })
-
-                queue.add(stringRequest)
-            }) {
+            Button(onClick = sendRequest) {
                 Text(
                     text = "Open/Close",
                     color = MaterialTheme.colorScheme.surface,
@@ -153,6 +148,6 @@ fun OpenButton() {
 @Composable
 fun GreetingPreview() {
     ESPCommunicationTheme {
-        OpenButton()
+        OpenButton {}
     }
 }
