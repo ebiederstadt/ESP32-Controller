@@ -16,6 +16,9 @@ void setup() {
   Serial.print("IP address: ");
   Serial.println(WiFi.softAPIP());
 
+  Serial.print("MAC address: ");
+  Serial.println(WiFi.macAddress());
+
   server.on("/", []() { server.send(200, "text/plain", "Connected."); });
   server.on("/blink", []() {
     led_on = !led_on;
