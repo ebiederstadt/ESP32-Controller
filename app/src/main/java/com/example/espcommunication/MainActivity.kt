@@ -1,6 +1,12 @@
 package com.example.espcommunication
 
 import android.annotation.SuppressLint
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
+import android.net.wifi.WifiNetworkSpecifier
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -64,31 +70,64 @@ fun OpenButton() {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Button(onClick = {
-                // Send the request
-                val queue = Volley.newRequestQueue(context)
-                val url = "http://192.168.4.1/blink"
+                // Connect to the WIFI network
+                val specifier = WifiNetworkSpecifier.Builder()
+                    .setSsid("ESP32")
+//                    .set(MacAddress.fromString("08:F9:E0:20:45:0C"))
+                    .build()
 
-                val stringRequest = StringRequest(Request.Method.GET, url,
-                    { response ->
-                        // Display the first 500 characters of the response string.
+                val request = NetworkRequest.Builder()
+                    .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                    .setNetworkSpecifier(specifier)
+                    .build()
+
+                val connectivityManager =
+                    context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+
+                val networkCallback = object : ConnectivityManager.NetworkCallback() {
+                    override fun onAvailable(network: Network) {
+                        Log.d("WIFI connection", "Network was found!")
+
+                        // Send the request
+                        val queue = Volley.newRequestQueue(context)
+                        val url = "http://192.168.4.1/blink"
+
+                        val stringRequest = StringRequest(Request.Method.GET, url,
+                            { response ->
+                                // Display the first 500 characters of the response string.
+                                coroutineScope.launch {
+                                    snackBarHostState.showSnackbar(
+                                        message = "Response is: $response",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                }
+                            },
+                            { error ->
+                                Log.e("Volley Error", error.toString())
+                                coroutineScope.launch {
+                                    snackBarHostState.showSnackbar(
+                                        message = "Sending Request Failed",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                }
+                            })
+
+                        queue.add(stringRequest)
+                    }
+
+                    override fun onUnavailable() {
+                        Log.e("WIFI connection", "Not available")
                         coroutineScope.launch {
                             snackBarHostState.showSnackbar(
-                                message = "Response is: ${response.substring(0, 500)}",
+                                message = "Not able to connect to WIFI network",
                                 duration = SnackbarDuration.Short
                             )
                         }
-                    },
-                    {error ->
-                        Log.e("Volley Error", error.toString())
-                        coroutineScope.launch {
-                            snackBarHostState.showSnackbar(
-                                message = "That didn't work!",
-                                duration = SnackbarDuration.Short
-                            )
-                        }
-                    })
+                    }
+                }
+                connectivityManager.requestNetwork(request, networkCallback)
 
-                queue.add(stringRequest)
+//                connectivityManager.unregisterNetworkCallback(networkCallback)
             }) {
                 Text(
                     text = "Open/Close",
