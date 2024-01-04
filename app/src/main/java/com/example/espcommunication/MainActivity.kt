@@ -35,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -52,6 +53,7 @@ import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalAutofill
 import androidx.compose.ui.platform.LocalAutofillTree
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -60,10 +62,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.example.espcommunication.ui.theme.ESPCommunicationTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.FileNotFoundException
 import java.net.URL
 import java.util.Scanner
 
@@ -205,17 +209,48 @@ fun Modifier.autofill(
         }
 }
 
+fun getPasswordFromAsset(context: Context): String? {
+    val passwordString: String
+    try {
+        passwordString = context.openFileInput("password_storage.txt").bufferedReader().use {
+            it.readText()
+        }
+    } catch (exp: FileNotFoundException) {
+        return null
+    }
+    if (passwordString == "") {
+        return null
+    }
+    return passwordString
+}
+
+fun writePasswordToAsset(context: Context, password: String) {
+    context.openFileOutput("password_storage.txt", Context.MODE_PRIVATE).use {
+        it.write(password.toByteArray())
+    }
+}
+
 @Composable
 fun passwordHandler() {
     val openAlertDialog = remember { mutableStateOf(true) }
     val password = remember { mutableStateOf("") }
 
+    val context = LocalContext.current
+    // Check to see if we saved a version of this file, but ensure that we only do it once :)
+    LaunchedEffect(Unit) {
+        getPasswordFromAsset(context)?.let {
+            password.value = it
+            Log.d("Password", "Found password in file")
+            openAlertDialog.value = false
+        }
+    }
+
     if (openAlertDialog.value) {
         EnterPassword(
-            onDismissRequest = { openAlertDialog.value = false },
             onConfirmation = {
                 openAlertDialog.value = false
-                Log.d("Password", "password entered: ${password.value}")
+                writePasswordToAsset(context, password.value)
+                Log.d("Password", "password saved: ${password.value}")
             },
             updatePassword = { newPassword: String -> password.value = newPassword },
             password = password.value
@@ -226,7 +261,6 @@ fun passwordHandler() {
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun EnterPassword(
-    onDismissRequest: () -> Unit,
     onConfirmation: () -> Unit,
     updatePassword: (String) -> Unit,
     password: String
@@ -234,7 +268,10 @@ fun EnterPassword(
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
     val padding = Modifier.padding(start = 10.dp, end = 10.dp, top = 10.dp)
 
-    Dialog(onDismissRequest = { onDismissRequest() }) {
+    Dialog(
+        onDismissRequest = { },
+        properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false)
+    ) {
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -302,7 +339,6 @@ fun EnterPassword(
 fun DialogPreview() {
     ESPCommunicationTheme {
         EnterPassword(
-            onDismissRequest = { Log.d("Password", "Dismissed") },
             onConfirmation = {
                 Log.d("Password", "password entered")
             },
