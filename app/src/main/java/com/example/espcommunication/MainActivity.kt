@@ -14,25 +14,52 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.autofill.AutofillNode
+import androidx.compose.ui.autofill.AutofillType
+import androidx.compose.ui.composed
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalAutofill
+import androidx.compose.ui.platform.LocalAutofillTree
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import com.example.espcommunication.ui.theme.ESPCommunicationTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -57,7 +84,8 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    networkCallback = connectToNetwork(connectivityManager)
+                    passwordHandler()
+//                    networkCallback = connectToNetwork(connectivityManager)
                 }
             }
         }
@@ -79,8 +107,8 @@ class MainActivity : ComponentActivity() {
 fun requestNetwork(connectivityManager: ConnectivityManager, networkCallback: NetworkCallback) {
     val specifier = WifiNetworkSpecifier.Builder()
         .setSsid("ESP32")
-//        .setBssid(MacAddress.fromString("08:F9:E0:20:45:0C"))
         .setIsHiddenSsid(true)
+        .setWpa2Passphrase("example_pass")
         .build()
 
     val request = NetworkRequest.Builder()
@@ -104,6 +132,7 @@ fun connectToNetwork(
         }
 
         override fun onUnavailable() {
+            // TODO: Need to show something to the user in this case, because it will happen if the password is incorrect
             Log.e("WIFI connection", "Not available")
         }
     }
@@ -136,31 +165,149 @@ suspend fun sendRequest(network: Network): String {
 @Composable
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 fun openButton(sendRequest: () -> Unit) {
-    val snackBarHostState = remember {
-        SnackbarHostState()
-    }
-    Scaffold(content = {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Button(onClick = sendRequest) {
-                Text(
-                    text = "Open/Close",
-                    color = MaterialTheme.colorScheme.surface,
-                    modifier = Modifier.padding(16.dp)
-                )
-            }
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Button(onClick = sendRequest) {
+            Text(
+                text = "Open/Close",
+                modifier = Modifier.padding(16.dp),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
         }
-    }, snackbarHost = { SnackbarHost(hostState = snackBarHostState) })
+    }
 }
 
+@OptIn(ExperimentalComposeUiApi::class)
+fun Modifier.autofill(
+    autofillTypes: List<AutofillType>,
+    onFill: ((String) -> Unit),
+) = composed {
+    val autofill = LocalAutofill.current
+    val autofillNode = AutofillNode(onFill = onFill, autofillTypes = autofillTypes)
+    LocalAutofillTree.current += autofillNode
+
+    this
+        .onGloballyPositioned {
+            autofillNode.boundingBox = it.boundsInWindow()
+        }
+        .onFocusChanged { focusState ->
+            autofill?.run {
+                if (focusState.isFocused) {
+                    requestAutofillForNode(autofillNode)
+                } else {
+                    cancelAutofillForNode(autofillNode)
+                }
+            }
+        }
+}
+
+@Composable
+fun passwordHandler() {
+    val openAlertDialog = remember { mutableStateOf(true) }
+    val password = remember { mutableStateOf("") }
+
+    if (openAlertDialog.value) {
+        EnterPassword(
+            onDismissRequest = { openAlertDialog.value = false },
+            onConfirmation = {
+                openAlertDialog.value = false
+                Log.d("Password", "password entered: ${password.value}")
+            },
+            updatePassword = { newPassword: String -> password.value = newPassword },
+            password = password.value
+        )
+    }
+}
+
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+fun EnterPassword(
+    onDismissRequest: () -> Unit,
+    onConfirmation: () -> Unit,
+    updatePassword: (String) -> Unit,
+    password: String
+) {
+    var passwordVisible by rememberSaveable { mutableStateOf(false) }
+    val padding = Modifier.padding(start = 10.dp, end = 10.dp, top = 10.dp)
+
+    Dialog(onDismissRequest = { onDismissRequest() }) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(250.dp)
+                .padding(16.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.secondary
+            ),
+            elevation = CardDefaults.cardElevation(
+                defaultElevation = 6.dp
+            )
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Text(
+                    text = "Enter Network Password",
+                    textAlign = TextAlign.Center,
+                    modifier = padding,
+                    color = MaterialTheme.colorScheme.onSecondary,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = "Enter the password used by the ESP32 to create the network.",
+                    modifier = padding,
+                    color = MaterialTheme.colorScheme.onSecondary,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                TextField(
+                    value = password,
+                    onValueChange = updatePassword,
+                    label = { Text("Password") },
+                    modifier = padding.autofill(
+                        autofillTypes = listOf(AutofillType.Password, AutofillType.NewPassword),
+                        onFill = updatePassword
+                    ),
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    trailingIcon = {
+                        val image = if (passwordVisible)
+                            Icons.Filled.Visibility
+                        else Icons.Filled.VisibilityOff
+
+                        val description = if (passwordVisible) "Hide password" else "Show password"
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(imageVector = image, description)
+                        }
+                    }
+                )
+                Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxSize()) {
+                    TextButton(
+                        onClick = onConfirmation,
+                        modifier = padding,
+                    ) {
+                        Text("Submit", color = MaterialTheme.colorScheme.onSecondary)
+                    }
+                }
+            }
+        }
+    }
+
+}
 
 @Preview(showBackground = true)
 @Composable
-fun OpenPreview() {
+fun DialogPreview() {
     ESPCommunicationTheme {
-        openButton {}
+        EnterPassword(
+            onDismissRequest = { Log.d("Password", "Dismissed") },
+            onConfirmation = {
+                Log.d("Password", "password entered")
+            },
+            updatePassword = { _: String -> Log.d("Password", "Password Updated") },
+            password = "test"
+        )
     }
 }
