@@ -11,7 +11,7 @@ void setup() {
   pinMode(led_pin, OUTPUT);
   Serial.begin(115200);
 
-  WiFi.softAP("ESP32");
+  WiFi.softAP("ESP32", "", 1, true);
 
   Serial.print("IP address: ");
   Serial.println(WiFi.softAPIP());

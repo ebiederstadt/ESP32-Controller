@@ -80,6 +80,7 @@ fun requestNetwork(connectivityManager: ConnectivityManager, networkCallback: Ne
     val specifier = WifiNetworkSpecifier.Builder()
         .setSsid("ESP32")
 //        .setBssid(MacAddress.fromString("08:F9:E0:20:45:0C"))
+        .setIsHiddenSsid(true)
         .build()
 
     val request = NetworkRequest.Builder()
