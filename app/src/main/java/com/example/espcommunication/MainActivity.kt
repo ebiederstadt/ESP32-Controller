@@ -57,25 +57,26 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    networkCallback = ConnectToNetwork(connectivityManager)
+                    networkCallback = connectToNetwork(connectivityManager)
                 }
             }
         }
     }
 
+    // When the activity is stopped, we will reconnect to the original wifi network
     override fun onStop() {
         super.onStop()
         connectivityManager.unregisterNetworkCallback(networkCallback)
     }
+
+    // If the user re-navigates to the network, then we can re-register the network callback
+    override fun onRestart() {
+        super.onRestart()
+        requestNetwork(connectivityManager, networkCallback)
+    }
 }
 
-@Composable
-fun ConnectToNetwork(
-    connectivityManager: ConnectivityManager,
-): NetworkCallback {
-    var foundNetwork by remember { mutableStateOf<Network?>(null) }
-    val coroutineScope = rememberCoroutineScope()
-
+fun requestNetwork(connectivityManager: ConnectivityManager, networkCallback: NetworkCallback) {
     val specifier = WifiNetworkSpecifier.Builder()
         .setSsid("ESP32")
 //        .setBssid(MacAddress.fromString("08:F9:E0:20:45:0C"))
@@ -85,6 +86,15 @@ fun ConnectToNetwork(
         .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
         .setNetworkSpecifier(specifier)
         .build()
+    connectivityManager.requestNetwork(request, networkCallback)
+}
+
+@Composable
+fun connectToNetwork(
+    connectivityManager: ConnectivityManager,
+): NetworkCallback {
+    var foundNetwork by remember { mutableStateOf<Network?>(null) }
+    val coroutineScope = rememberCoroutineScope()
 
     val networkCallback = object : NetworkCallback() {
         override fun onAvailable(network: Network) {
@@ -97,12 +107,12 @@ fun ConnectToNetwork(
         }
     }
 
-    // This will display a loading bar + error message with option to retry
-    connectivityManager.requestNetwork(request, networkCallback)
+    requestNetwork(connectivityManager, networkCallback)
 
-    OpenButton {
+    openButton {
         foundNetwork?.let { network ->
-            // We are not allowed to make network requests on the main thread, so we have to use a co-routine scope
+            // We are not allowed to make network requests on the main thread, so we have to use a
+            // co-routine scope
             coroutineScope.launch {
                 val result = sendRequest(network)
                 Log.i("WIFI Connection", result)
@@ -124,7 +134,7 @@ suspend fun sendRequest(network: Network): String {
 
 @Composable
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
-fun OpenButton(sendRequest: () -> Unit) {
+fun openButton(sendRequest: () -> Unit) {
     val snackBarHostState = remember {
         SnackbarHostState()
     }
@@ -148,8 +158,8 @@ fun OpenButton(sendRequest: () -> Unit) {
 
 @Preview(showBackground = true)
 @Composable
-fun GreetingPreview() {
+fun OpenPreview() {
     ESPCommunicationTheme {
-        OpenButton {}
+        openButton {}
     }
 }
