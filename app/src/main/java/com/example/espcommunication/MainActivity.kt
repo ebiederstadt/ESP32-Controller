@@ -55,6 +55,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalAutofill
 import androidx.compose.ui.platform.LocalAutofillTree
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -75,14 +76,13 @@ import java.net.URL
 import java.util.Scanner
 
 class MainActivity : ComponentActivity() {
-    private lateinit var connectivityManager: ConnectivityManager
-    private lateinit var networkCallback: NetworkCallback
+    private lateinit var viewModel: AppViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        connectivityManager =
-            this.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        viewModel = AppViewModel()
+        viewModel.setupConnectivityManager(this)
 
         setContent {
             ESPCommunicationTheme {
@@ -91,7 +91,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    passwordHandler()
+                    passwordHandler(viewModel)
 //                    networkCallback = connectToNetwork(connectivityManager)
                 }
             }
@@ -101,34 +101,21 @@ class MainActivity : ComponentActivity() {
     // When the activity is stopped, we will reconnect to the original wifi network
     override fun onStop() {
         super.onStop()
-        connectivityManager.unregisterNetworkCallback(networkCallback)
+        viewModel.destroyConnectivityManager()
     }
 
     // If the user re-navigates to the network, then we can re-register the network callback
     override fun onRestart() {
         super.onRestart()
-        requestNetwork(connectivityManager, networkCallback)
+        // TODO: This will need to ask for a password, which might mean user input... what to do
+//        requestNetwork(connectivityManager, networkCallback)
     }
-}
-
-fun requestNetwork(connectivityManager: ConnectivityManager, networkCallback: NetworkCallback) {
-    val specifier = WifiNetworkSpecifier.Builder()
-        .setSsid("ESP32")
-        .setIsHiddenSsid(true)
-        .setWpa2Passphrase("example_pass")
-        .build()
-
-    val request = NetworkRequest.Builder()
-        .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
-        .setNetworkSpecifier(specifier)
-        .build()
-    connectivityManager.requestNetwork(request, networkCallback)
 }
 
 @Composable
 fun connectToNetwork(
     connectivityManager: ConnectivityManager,
-): NetworkCallback {
+) {
     var foundNetwork by remember { mutableStateOf<Network?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
@@ -144,20 +131,18 @@ fun connectToNetwork(
         }
     }
 
-    requestNetwork(connectivityManager, networkCallback)
+//    requestNetwork(connectivityManager, networkCallback)
 
-    openButton {
-        foundNetwork?.let { network ->
-            // We are not allowed to make network requests on the main thread, so we have to use a
-            // co-routine scope
-            coroutineScope.launch {
-                val result = sendRequest(network)
-                Log.i("WIFI Connection", result)
-            }
-        }
-    }
-
-    return networkCallback
+//    openButton {
+//        foundNetwork?.let { network ->
+//            // We are not allowed to make network requests on the main thread, so we have to use a
+//            // co-routine scope
+//            coroutineScope.launch {
+//                val result = sendRequest(network)
+//                Log.i("WIFI Connection", result)
+//            }
+//        }
+//    }
 }
 
 suspend fun sendRequest(network: Network): String {
@@ -213,7 +198,7 @@ fun Modifier.autofill(
 }
 
 @Composable
-fun passwordHandler(viewModel: AppViewModel = viewModel()) {
+fun passwordHandler(viewModel: AppViewModel) {
     val uiState by viewModel.uiState.collectAsState()
 
     val context = LocalContext.current
@@ -228,8 +213,15 @@ fun passwordHandler(viewModel: AppViewModel = viewModel()) {
                 viewModel.writePasswordToAsset(context)
             },
             updatePassword = { viewModel.updatePassword(it) },
-            password = viewModel.password
+            password = viewModel.password,
+            detailMessage = if (uiState.failedToConnectToWifi) stringResource(R.string.wifi_connect_message_fail) else stringResource(
+                R.string.wifi_connect_message_default
+            )
         )
+    }
+
+    if (uiState.passwordAssumedValid) {
+        viewModel.requestNetwork()
     }
 }
 
@@ -238,7 +230,8 @@ fun passwordHandler(viewModel: AppViewModel = viewModel()) {
 fun EnterPassword(
     onConfirmation: () -> Unit,
     updatePassword: (String) -> Unit,
-    password: String
+    password: String,
+    detailMessage: String
 ) {
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
     val padding = Modifier.padding(start = 10.dp, end = 10.dp, top = 10.dp)
@@ -269,7 +262,7 @@ fun EnterPassword(
                     style = MaterialTheme.typography.titleMedium
                 )
                 Text(
-                    text = "Enter the password used by the ESP32 to create the network.",
+                    text = detailMessage,
                     modifier = padding,
                     color = MaterialTheme.colorScheme.onSecondary,
                     style = MaterialTheme.typography.bodyMedium
@@ -318,7 +311,8 @@ fun DialogPreview() {
                 Log.d("Password", "password entered")
             },
             updatePassword = { _: String -> Log.d("Password", "Password Updated") },
-            password = "test"
+            password = "test",
+            detailMessage = stringResource(R.string.wifi_connect_message_default)
         )
     }
 }

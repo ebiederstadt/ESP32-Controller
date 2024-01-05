@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">ESP Communication</string>
+    <string name="wifi_connect_message_default">Enter the password used by the ESP32 to create the network.</string>
+    <string name="wifi_connect_message_fail">Failed to connect to the ESP32 network. Check the device and re-enter the password.</string>
 </resources>
