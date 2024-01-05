@@ -24,4 +24,4 @@ Configure the server code with PlatformIO, then compile and upload it to the ESP
 sudo chmod a+rw /dev/ttyUSB0
 ```
 
-Build the android app with android studio. It's necessaracy to use a real android device because the emulator does not have networking capabilities. I reccomend using wired debugging, as the phone will lose it's wireless connection after switching to the ESP network and you will no longer have access to the logs.
+Build the android app with Android Studio. It's necessary to use a real android device because the emulator does not have networking capabilities. I recommend using wired debugging, as the phone will lose it's wireless connection after switching to the ESP network and you will no longer have access to the logs.
