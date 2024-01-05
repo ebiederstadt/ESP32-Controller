@@ -1,13 +1,6 @@
 package com.example.espcommunication
 
 import android.annotation.SuppressLint
-import android.content.Context
-import android.net.ConnectivityManager
-import android.net.ConnectivityManager.NetworkCallback
-import android.net.Network
-import android.net.NetworkCapabilities
-import android.net.NetworkRequest
-import android.net.wifi.WifiNetworkSpecifier
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -19,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -27,6 +21,7 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -39,7 +34,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -65,15 +59,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.espcommunication.ui.AppViewModel
 import com.example.espcommunication.ui.theme.ESPCommunicationTheme
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.FileNotFoundException
-import java.net.URL
-import java.util.Scanner
 
 class MainActivity : ComponentActivity() {
     private lateinit var viewModel: AppViewModel
@@ -91,7 +79,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    passwordHandler(viewModel)
+                    AppUI(viewModel)
 //                    networkCallback = connectToNetwork(connectivityManager)
                 }
             }
@@ -109,48 +97,6 @@ class MainActivity : ComponentActivity() {
         super.onRestart()
         // TODO: This will need to ask for a password, which might mean user input... what to do
 //        requestNetwork(connectivityManager, networkCallback)
-    }
-}
-
-@Composable
-fun connectToNetwork(
-    connectivityManager: ConnectivityManager,
-) {
-    var foundNetwork by remember { mutableStateOf<Network?>(null) }
-    val coroutineScope = rememberCoroutineScope()
-
-    val networkCallback = object : NetworkCallback() {
-        override fun onAvailable(network: Network) {
-            Log.d("WIFI connection", "Network was found!")
-            foundNetwork = network
-        }
-
-        override fun onUnavailable() {
-            // TODO: Need to show something to the user in this case, because it will happen if the password is incorrect
-            Log.e("WIFI connection", "Not available")
-        }
-    }
-
-//    requestNetwork(connectivityManager, networkCallback)
-
-//    openButton {
-//        foundNetwork?.let { network ->
-//            // We are not allowed to make network requests on the main thread, so we have to use a
-//            // co-routine scope
-//            coroutineScope.launch {
-//                val result = sendRequest(network)
-//                Log.i("WIFI Connection", result)
-//            }
-//        }
-//    }
-}
-
-suspend fun sendRequest(network: Network): String {
-    return withContext(Dispatchers.IO) {
-        val connection = network.openConnection(URL("http://192.168.4.1/blink"))
-        val response = connection.getInputStream()
-        val scanner = Scanner(response)
-        return@withContext scanner.useDelimiter("\\A").next()
     }
 }
 
@@ -198,8 +144,9 @@ fun Modifier.autofill(
 }
 
 @Composable
-fun passwordHandler(viewModel: AppViewModel) {
+fun AppUI(viewModel: AppViewModel) {
     val uiState by viewModel.uiState.collectAsState()
+    val coroutineScope = rememberCoroutineScope()
 
     val context = LocalContext.current
     // Check to see if we saved a version of this file, but ensure that we only do it once :)
@@ -221,7 +168,42 @@ fun passwordHandler(viewModel: AppViewModel) {
     }
 
     if (uiState.passwordAssumedValid) {
-        viewModel.requestNetwork()
+        // TODO: I think this might not work if the password is wrong. Need to check
+        LaunchedEffect(Unit) {
+            viewModel.requestNetwork()
+        }
+    }
+
+    if (uiState.currentlyConnectingToNetwork) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                "Connecting...",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(bottom = 10.dp)
+            )
+            CircularProgressIndicator(
+                modifier = Modifier.width(64.dp),
+                color = MaterialTheme.colorScheme.secondary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+        }
+    }
+
+    if (!uiState.failedToConnectToWifi and !uiState.currentlyConnectingToNetwork) {
+        openButton {
+            // We are not allowed to make network requests on the main thread, so we have to use a
+            // co-routine scope
+            coroutineScope.launch {
+                val result = viewModel.sendRequest()
+                result?.let {
+                    Log.i("WIFI Connection", it)
+                }
+            }
+        }
     }
 }
 

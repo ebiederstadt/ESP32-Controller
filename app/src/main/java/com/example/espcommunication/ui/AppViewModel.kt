@@ -12,10 +12,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.withContext
 import java.io.FileNotFoundException
+import java.net.URL
+import java.util.Scanner
 
 class AppViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(UIState())
@@ -92,7 +96,24 @@ class AppViewModel : ViewModel() {
             .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
             .setNetworkSpecifier(specifier)
             .build()
+
         connectivityManager.requestNetwork(request, networkCallback)
+        _uiState.update { currentState ->
+            currentState.copy(currentlyConnectingToNetwork = true)
+        }
+    }
+
+    suspend fun sendRequest(): String? {
+        return withContext(Dispatchers.IO) {
+            foundNetwork?.let { network ->
+                val connection = network.openConnection(URL("http://192.168.4.1/blink"))
+                val response = connection.getInputStream()
+                val scanner = Scanner(response)
+                return@withContext scanner.useDelimiter("\\A").next()
+            }
+            // If we don't find anything, just return null
+            return@withContext null
+        }
     }
 
     private fun updateAppState(
@@ -102,7 +123,8 @@ class AppViewModel : ViewModel() {
         _uiState.update { currentState ->
             currentState.copy(
                 passwordAssumedValid = passwordPotentiallyValid,
-                failedToConnectToWifi = failedToConnect
+                failedToConnectToWifi = failedToConnect,
+                currentlyConnectingToNetwork = false
             )
         }
     }
