@@ -36,6 +36,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -63,6 +64,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.espcommunication.ui.AppViewModel
 import com.example.espcommunication.ui.theme.ESPCommunicationTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -209,51 +212,23 @@ fun Modifier.autofill(
         }
 }
 
-fun getPasswordFromAsset(context: Context): String? {
-    val passwordString: String
-    try {
-        passwordString = context.openFileInput("password_storage.txt").bufferedReader().use {
-            it.readText()
-        }
-    } catch (exp: FileNotFoundException) {
-        return null
-    }
-    if (passwordString == "") {
-        return null
-    }
-    return passwordString
-}
-
-fun writePasswordToAsset(context: Context, password: String) {
-    context.openFileOutput("password_storage.txt", Context.MODE_PRIVATE).use {
-        it.write(password.toByteArray())
-    }
-}
-
 @Composable
-fun passwordHandler() {
-    val openAlertDialog = remember { mutableStateOf(true) }
-    val password = remember { mutableStateOf("") }
+fun passwordHandler(viewModel: AppViewModel = viewModel()) {
+    val uiState by viewModel.uiState.collectAsState()
 
     val context = LocalContext.current
     // Check to see if we saved a version of this file, but ensure that we only do it once :)
     LaunchedEffect(Unit) {
-        getPasswordFromAsset(context)?.let {
-            password.value = it
-            Log.d("Password", "Found password in file")
-            openAlertDialog.value = false
-        }
+        viewModel.getPasswordFromAsset(context)
     }
 
-    if (openAlertDialog.value) {
+    if (!uiState.passwordAssumedValid) {
         EnterPassword(
             onConfirmation = {
-                openAlertDialog.value = false
-                writePasswordToAsset(context, password.value)
-                Log.d("Password", "password saved: ${password.value}")
+                viewModel.writePasswordToAsset(context)
             },
-            updatePassword = { newPassword: String -> password.value = newPassword },
-            password = password.value
+            updatePassword = { viewModel.updatePassword(it) },
+            password = viewModel.password
         )
     }
 }
