@@ -12,7 +12,7 @@ You will also need the following hardware:
 - An ESP32, with an LED connected to ground and pin 12 of the controller (through an appropriate resistor).
 - Cables for connecting the ESP and android phone to your computer
 
-After cloning the repository, create a file called `password.h` in `Garage Door Controller/lib/password`. The file should contain the password you want to use for the WIFI network the ESP will create.
+After cloning the repository, create a file called `password.h` in `server/lib/password`. The file should contain the password you want to use for the WIFI network the ESP will create.
 
 ```c++
 #pragma once
