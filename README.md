@@ -8,8 +8,9 @@ Install the following tools onto your computer:
 - Visual Studio Code with the PlatformIO extension
 
 You will also need the following hardware:
-- An android phone
-- An ESP32, with an LED connected to ground and pin 12 of the controller (through an appropriate resistor).
+- An android phone.
+- An ESP32.
+- Breadboard, resistors, LEDs, wires.
 - Cables for connecting the ESP and android phone to your computer
 
 After cloning the repository, create a file called `password.h` in `server/lib/password`. The file should contain the password you want to use for the WIFI network the ESP will create.
@@ -18,6 +19,8 @@ After cloning the repository, create a file called `password.h` in `server/lib/p
 #pragma once
 #define WIFI_PASSWORD "your_password"
 ```
+
+Setup the ESP hardware. Connect an LED to ground and to pin 12 (through the appropriate resistor, for example 220omh). You can check your circuit by connecting the LED to positive (through a resistor).
 
 Configure the server code with PlatformIO, then compile and upload it to the ESP. The serial console will print some information about the WIFI network created. On linux you may have to give permission to upload to the ESP:
 ```sh
