@@ -1,6 +1,9 @@
 #include <WebServer.h>
 #include <WiFi.h>
+#include <fstream>
 #include <string>
+
+#include <password.h>
 
 WebServer server(80);
 
@@ -10,8 +13,7 @@ int const led_pin = 12;
 void setup() {
   pinMode(led_pin, OUTPUT);
   Serial.begin(115200);
-
-  WiFi.softAP("ESP32", "example_pass", 1, true);
+  WiFi.softAP("ESP32", WIFI_PASSWORD, 1, true);
 
   Serial.print("IP address: ");
   Serial.println(WiFi.softAPIP());
