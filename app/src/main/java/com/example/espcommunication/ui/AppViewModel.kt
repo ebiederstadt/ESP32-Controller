@@ -103,16 +103,22 @@ class AppViewModel : ViewModel() {
         }
     }
 
-    suspend fun sendRequest(): String? {
+    suspend fun sendRequest() {
         return withContext(Dispatchers.IO) {
             foundNetwork?.let { network ->
                 val connection = network.openConnection(URL("http://192.168.4.1/toggle"))
                 val response = connection.getInputStream()
                 val scanner = Scanner(response)
-                return@withContext scanner.useDelimiter("\\A").next()
+                _uiState.update { currentState ->
+                    currentState.copy(maybeNetworkMessage = scanner.useDelimiter("\\A").next())
+                }
             }
-            // If we don't find anything, just return null
-            return@withContext null
+        }
+    }
+
+    fun resetNetworkMessage() {
+        _uiState.update { currentState ->
+            currentState.copy(maybeNetworkMessage = null)
         }
     }
 

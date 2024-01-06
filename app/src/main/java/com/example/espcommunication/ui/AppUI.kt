@@ -22,6 +22,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -30,6 +33,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -94,14 +98,11 @@ fun AppUI(viewModel: AppViewModel) {
     }
 
     if (!uiState.failedToConnectToWifi and !uiState.currentlyConnectingToNetwork) {
-        OpenButton {
+        OpenButton(uiState, viewModel) {
             // We are not allowed to make network requests on the main thread, so we have to use a
             // co-routine scope
             coroutineScope.launch {
-                val result = viewModel.sendRequest()
-                result?.let {
-                    Log.i("WIFI Connection", it)
-                }
+                viewModel.sendRequest()
             }
         }
     }
@@ -206,19 +207,32 @@ fun IndicateNetworkLoading() {
 
 @Composable
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
-fun OpenButton(sendRequest: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Button(onClick = sendRequest) {
-            Text(
-                text = "Open/Close",
-                modifier = Modifier.padding(16.dp),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
+fun OpenButton(uiState: UIState, viewModel: AppViewModel, sendRequest: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    val snackBarHostState = remember { SnackbarHostState() }
+
+    Scaffold(snackbarHost = {
+        SnackbarHost(snackBarHostState)
+    }) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Button(onClick = sendRequest) {
+                Text(
+                    text = "Open/Close",
+                    modifier = Modifier.padding(16.dp),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            uiState.maybeNetworkMessage?.let { networkMessage ->
+                scope.launch {
+                    snackBarHostState.showSnackbar(networkMessage)
+                }
+                viewModel.resetNetworkMessage()
+            }
         }
     }
 }
