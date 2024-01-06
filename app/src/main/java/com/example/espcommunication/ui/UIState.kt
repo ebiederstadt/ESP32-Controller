@@ -5,5 +5,5 @@ data class UIState(
     val passwordAssumedValid: Boolean = false,
     val currentlyConnectingToNetwork: Boolean = false,
     val failedToConnectToWifi: Boolean = false,
-    val maybeNetworkMessage: String? = ""
+    val maybeNetworkMessage: String? = null
 )

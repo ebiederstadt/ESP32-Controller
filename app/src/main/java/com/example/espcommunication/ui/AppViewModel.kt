@@ -21,9 +21,9 @@ import java.io.FileNotFoundException
 import java.net.URL
 import java.util.Scanner
 
-class AppViewModel : ViewModel() {
+class AppViewModel(activity: ComponentActivity) : ViewModel() {
     private val _uiState = MutableStateFlow(UIState())
-    private lateinit var connectivityManager: ConnectivityManager
+    private var connectivityManager: ConnectivityManager
     private lateinit var networkCallback: ConnectivityManager.NetworkCallback
 
     var password by mutableStateOf("")
@@ -33,7 +33,7 @@ class AppViewModel : ViewModel() {
 
     val uiState = _uiState.asStateFlow()
 
-    fun setupConnectivityManager(activity: ComponentActivity) {
+    init {
         connectivityManager =
             activity.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     }
@@ -70,9 +70,6 @@ class AppViewModel : ViewModel() {
     }
 
     fun requestNetwork() {
-        if (foundNetwork != null)
-            return
-
         networkCallback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
                 foundNetwork = network

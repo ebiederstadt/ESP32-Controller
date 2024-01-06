@@ -32,8 +32,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun setupContent() {
-        viewModel = AppViewModel()
-        viewModel.setupConnectivityManager(this)
+        viewModel = AppViewModel(this)
 
         setContent {
             ESPCommunicationTheme {
