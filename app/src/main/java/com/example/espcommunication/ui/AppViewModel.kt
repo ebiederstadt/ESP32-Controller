@@ -106,7 +106,7 @@ class AppViewModel : ViewModel() {
     suspend fun sendRequest(): String? {
         return withContext(Dispatchers.IO) {
             foundNetwork?.let { network ->
-                val connection = network.openConnection(URL("http://192.168.4.1/blink"))
+                val connection = network.openConnection(URL("http://192.168.4.1/toggle"))
                 val response = connection.getInputStream()
                 val scanner = Scanner(response)
                 return@withContext scanner.useDelimiter("\\A").next()

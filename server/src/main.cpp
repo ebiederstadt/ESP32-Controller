@@ -9,6 +9,7 @@ WebServer server(80);
 
 bool led_on = false;
 int const led_pin = 12;
+bool closed = true;
 
 void setup() {
   pinMode(led_pin, OUTPUT);
@@ -34,6 +35,13 @@ void setup() {
       digitalWrite(led_pin, LOW);
       server.send(200, "text/plain", "Turned off");
     }
+  });
+  server.on("/toggle", []() {
+    closed = !closed;
+    digitalWrite(led_pin, HIGH);
+    delay(1000);
+    digitalWrite(led_pin, LOW);
+    server.send(200, "text/plain", closed ? "closed" : "open");
   });
 
   server.begin();
