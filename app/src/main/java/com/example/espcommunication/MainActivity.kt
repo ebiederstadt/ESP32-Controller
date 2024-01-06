@@ -16,7 +16,22 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setupContent()
+    }
 
+    // When the activity is stopped, we will reconnect to the original wifi network
+    override fun onStop() {
+        super.onStop()
+        viewModel.destroyConnectivityManager()
+    }
+
+    override fun onRestart() {
+        super.onRestart()
+        // Re-setup the content to ensure that we connect to the network
+        setupContent()
+    }
+
+    private fun setupContent() {
         viewModel = AppViewModel()
         viewModel.setupConnectivityManager(this)
 
@@ -31,11 +46,5 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-    }
-
-    // When the activity is stopped, we will reconnect to the original wifi network
-    override fun onStop() {
-        super.onStop()
-        viewModel.destroyConnectivityManager()
     }
 }
