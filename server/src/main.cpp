@@ -38,10 +38,11 @@ void setup() {
   });
   server.on("/toggle", []() {
     closed = !closed;
+    server.send(200, "text/plain", closed ? "Closing..." : "Opening...");
+
     digitalWrite(led_pin, HIGH);
     delay(1000);
     digitalWrite(led_pin, LOW);
-    server.send(200, "text/plain", closed ? "closed" : "open");
   });
 
   server.begin();
