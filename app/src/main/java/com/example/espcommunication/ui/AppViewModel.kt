@@ -73,7 +73,7 @@ class AppViewModel : ViewModel() {
         if (foundNetwork != null)
             return
 
-        val networkCallback = object : ConnectivityManager.NetworkCallback() {
+        networkCallback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
                 foundNetwork = network
                 updateAppState()
